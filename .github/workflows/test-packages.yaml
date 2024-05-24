@@ -1,4 +1,4 @@
-name: Test package installation
+name: Test packages
 
 on:
   pull_request:
@@ -9,6 +9,7 @@ on:
 
 jobs:
   setup:
+    name: Setup
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,6 +23,7 @@ jobs:
       changes: ${{ steps.diff.outputs.changes }}
 
   test:
+    name: Test install
     runs-on: ubuntu-latest
     needs:
       - setup
@@ -36,7 +38,7 @@ jobs:
         id: version
         run: echo "version=$(curl https://glasskube.dev/release.json | jq -r .version)" >> $GITHUB_OUTPUT
       - name: Install glasskube
-        run: curl -fL https://github.com/glasskube/glasskube/releases/download/v${{ steps.version.outputs.version }}/glasskube_v${{ steps.version.outputs.version }}_linux_x86_64.tar.gz | tar -xz
+        run: curl -fL "https://github.com/glasskube/glasskube/releases/download/v${{ steps.version.outputs.version }}/glasskube_v${{ steps.version.outputs.version }}_linux_x86_64.tar.gz" | tar -xz
       - name: Check glasskube
         run: ./glasskube --version
       - name: Start local webserver
@@ -47,12 +49,15 @@ jobs:
       - name: Add host.minikube.internal to /etc/hosts
         run: sudo echo "127.0.0.1 host.minikube.internal" | sudo tee -a /etc/hosts
       - name: Check local webserver
-        run: curl -v http://host.minikube.internal:9090/packages/${{ matrix.change[0] }}/${{ matrix.change[1] }}/package.yaml
+        run: curl -v "http://host.minikube.internal:9090/packages/${{ matrix.change[0] }}/${{ matrix.change[1] }}/package.yaml"
       - name: Start minikube cluster
         uses: medyagh/setup-minikube@317d92317e473a10540357f1f4b2878b80ee7b95 # v0.0.16
       - name: Bootstrap Glasskube in Minikube cluster
         run: ./glasskube bootstrap --disable-telemetry --create-default-repository=false
       - name: Add local repository
-        run: ./glasskube repo add local http://host.minikube.internal:9090/packages/ --default
+        run: ./glasskube repo add local "http://host.minikube.internal:9090/packages/" --default
       - name: Install package in Minikube cluster
-        run: ./glasskube install ${{ matrix.change[0] }} --repository=local --version=${{ matrix.change[1] }} --yes
+        run: ./glasskube install "${{ matrix.change[0] }}" --repository="local" --version="${{ matrix.change[1] }}" --yes
+      - name: Check package status
+        run: |
+          ./glasskube describe "${{ matrix.change[0] }}" | grep -E "Status: *Ready"
