@@ -44,12 +44,15 @@ jobs:
         with:
           directory: ${{ github.workspace }}
           port: 9090
+      - name: Add host.minikube.internal to /etc/hosts
+        run: sudo echo "127.0.0.1 host.minikube.internal" | sudo tee -a /etc/hosts
+      - name: Check local webserver
+        run: curl -v http://host.minikube.internal:9090/packages/${{ matrix.change[0] }}/${{ matrix.change[1] }}/package.yaml
       - name: Start minikube cluster
         uses: medyagh/setup-minikube@317d92317e473a10540357f1f4b2878b80ee7b95 # v0.0.16
       - name: Bootstrap Glasskube in Minikube cluster
         run: ./glasskube bootstrap --disable-telemetry --create-default-repository=false
       - name: Add local repository
         run: ./glasskube repo add local http://host.minikube.internal:9090/packages/ --default
-      - run: curl -v http://localhost:9090/packages/${{ matrix.change[0] }}/${{ matrix.change[1] }}/package.yaml
       - name: Install package in Minikube cluster
         run: ./glasskube install ${{ matrix.change[0] }} --repository=local --version=${{ matrix.change[1] }} --yes
